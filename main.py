@@ -12,7 +12,7 @@ HARD = 7
 
 WEAPONS = ["r", "p", "s"]
 BEATS = {"r": "s", "p": "r", "s": "p"}
-WEAPON_NAMES = {"r": "Rock", "p": "Paper, "s": "Scissors"}
+WEAPON_NAMES = {"r": "Rock", "p": "Paper", "s": "Scissors"}
 
 
 def get_valid_response(valid_choices: list, prompt: str, error_msg: str = "Invalid Input") -> str:
