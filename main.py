@@ -10,6 +10,11 @@ MEDIUM = 5
 HARD = 7
 
 
+WEAPONS = ["r", "p", "s"]
+BEATS = {"r": "s", "p": "r", "s": "p"}
+WEAPON_NAMES = {"r": "Rock", "p": "Paper, "s": "Scissors"}
+
+
 def get_valid_response(valid_choices: list, prompt: str, error_msg: str = "Invalid Input") -> str:
     """Get valid input from user.
 
@@ -45,29 +50,13 @@ def _get_clash_result(user_attack: str, cpu_attack: str) -> tuple:
         print("Draw!")
         clash_result = (0, 0)
         return clash_result
-    elif user_attack == "r" and cpu_attack == "p":
-        print("I Win!!! Paper beats Rock")
-        clash_result = (0, 1)
-        return clash_result
-    elif user_attack == "r" and cpu_attack == "s":
-        print("You Win... Rock beats Scissors")
+    elif BEATS[user_attack] == cpu_attack:
+        print(f"You Win... {WEAPON_NAMES[user_attack]} beats {WEAPON_NAMES[cpu_attack]}.")
         clash_result = (1, 0)
-        return clash_result
-    elif user_attack == "p" and cpu_attack == "r":
-        print("You Win... Paper beats Rock")
-        clash_result = (1, 0)
-        return clash_result
-    elif user_attack == "p" and cpu_attack == "s":
-        print("I Win!!! Scissors beats Paper")
-        clash_result = (0, 1)
-        return clash_result
-    elif user_attack == "s" and cpu_attack == "r":
-        print("I Win!!! Rock beats Scissors")
-        clash_result = (0, 1)
         return clash_result
     else:
-        print("You Win... Scissors beats Paper")
-        clash_result = (1, 0)
+        print(f"I Win!!! {WEAPON_NAMES[cpu_attack]} beats {WEAPON_NAMES[user_attack]}")
+        clash_result = (0, 1)
         return clash_result
 
 
@@ -97,10 +86,9 @@ def get_game_settings() -> int:
 
 def play_game_loop(size):
     record = (0, 0)
-    cpu_weapons = ["r", "p", "s"]
     while record[0] < size and record[1] < size:
-        cpu_attack = random.choice(cpu_weapons)
-        user_attack = get_valid_response(["r", "p", "s"], "\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
+        cpu_attack = random.choice(WEAPONS)
+        user_attack = get_valid_response(WEAPONS, "\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
         clash_result = _get_clash_result(user_attack, cpu_attack)
         record = (record[0] + clash_result[0], record[1] + clash_result[1])
 
