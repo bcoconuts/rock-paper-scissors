@@ -5,7 +5,7 @@ import random
 
 
 GAME_SIZE = {"q": 1, "s": 3, "m": 5, "l": 7} #quick, small, medium, large
-BEST_OF_SIZE = GAME_SIZE * 2 - 1
+# BEST_OF_SIZE = GAME_SIZE.values() * 2 - 1
 WEAPON_NAME = {"r": "Rock", "p": "Paper", "s": "Scissors"}
 WEAPON = ["r", "p", "s"]
 BEATS = {"r": "s", "p": "r", "s": "p"}
@@ -22,16 +22,26 @@ def get_valid_response(valid_choices: set[str], prompt: str, error_msg: str = "I
 
 def determine_winner(player_attack: str, cpu_attack:str) -> bool:
     if BEATS[player_attack] == cpu_attack:
-        win = True
-        return win
+        player_result = 1
+        cpu_result = 0
+        return player_result, cpu_result
+    elif player_attack == cpu_attack:
+        player_result = 0
+        cpu_result = 0
+        return player_result, cpu_result
     else:
-        win = False
-        return win
+        player_result = 0
+        cpu_result = 1
+        return player_result, cpu_result
 
 
 def get_clash_result(player_attacks: dict, cpu_attack: str) -> dict:
+    clash_result = {}
     for key in player_attacks:
-        win = determine_winner(player_attacks[key], cpu_attack)
+        player_result, cpu_result = determine_winner(player_attacks[key], cpu_attack)
+        clash_result[f"{key}"] = player_result
+    clash_result["CPU"] = cpu_result
+    return clash_result
 
 
 def play_new_game_choice() -> bool:
@@ -50,13 +60,13 @@ def get_game_size() -> int:
 
 def get_players() -> int:
     while True:
-        players = int(get_valid_response(["1", "2", "3"], "How many players are playing against me (CPU)? [1] or [2]?: "))
+        players = int(get_valid_response(["1", "2", "3"], "How many players are playing against me (CPU)? [1], [2], or [3]?: "))
         return players
       
 
 def set_up_score_sheet(players: int) -> dict:
     score_sheet = {}
-    for p in range(1, players):
+    for p in range(1, players + 1):
         score_sheet[f"Player_{p}"] = 0
     score_sheet["CPU"] = 0
     return score_sheet
@@ -64,19 +74,19 @@ def set_up_score_sheet(players: int) -> dict:
 
 def get_player_attacks(players: int) -> dict:
     player_attacks = {}
-    for p in range(1, players):
-        player_attacks[f"Player_{p}"] = get_valid_response(WEAPON, "\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
+    for p in range(1, players + 1):
+        player_attacks[f"Player_{p}"] = get_valid_response(WEAPON, f"Player_{p}\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
     return player_attacks
 
 
 def adjust_score_sheet(score_sheet: dict, clash_result: dict) -> dict:
     for key in clash_result:
-        score_sheet[key] =+ clash_result[key]
+        score_sheet[key] += clash_result[key]
     return score_sheet
 
 
 def play_game_loop(size: int, players: int, score_sheet: dict) -> dict:
-    while any in score_sheet.values() < size:
+    while max(score_sheet.values()) < size:
         cpu_attack = random.choice(WEAPON)
         player_attacks = get_player_attacks(players)
         clash_result = get_clash_result(player_attacks, cpu_attack)
@@ -102,8 +112,10 @@ def play_game_loop(size: int, players: int, score_sheet: dict) -> dict:
 def main():
     while play_new_game_choice():
         size = get_game_size()
-        record = play_game_loop(size)
-        print(record)
+        players = get_players()
+        score_sheet = set_up_score_sheet(players)
+        score_sheet = play_game_loop(size, players, score_sheet)
+        print(score_sheet)
         # display_per_game_results(record, size)
 
 if __name__ == "__main__":
