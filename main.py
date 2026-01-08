@@ -74,45 +74,45 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
 # CORE GAME & LOGIC
 # ================================
 
-def play_game_loop(size: int, players: int, score_sheet: dict) -> dict:
-    while max(score_sheet.values()) < size:
-        cpu_attack = random.choice(WEAPON)
-        player_attacks = get_player_attacks(players)
-        clash_result = get_clash_result(player_attacks, cpu_attack)
-        score_sheet = adjust_score_sheet(score_sheet, clash_result)
+# def play_game_loop(size: int, players: int, score_sheet: dict) -> dict:
+#     while max(score_sheet.values()) < size:
+#         cpu_attack = random.choice(WEAPON)
+#         player_attacks = get_player_attacks(players)
+#         clash_result = get_clash_result(player_attacks, cpu_attack)
+#         score_sheet = adjust_score_sheet(score_sheet, clash_result)
 
-    return score_sheet
-
-
-def determine_winner(player_attack: str, cpu_attack:str) -> int:
-    if BEATS[player_attack] == cpu_attack:
-        player_result = 1
-        cpu_result = 0
-        return player_result, cpu_result
-    elif player_attack == cpu_attack:
-        player_result = 0
-        cpu_result = 0
-        return player_result, cpu_result
-    else:
-        player_result = 0
-        cpu_result = 1
-        return player_result, cpu_result
+#     return score_sheet
 
 
-def get_clash_result(player_attacks: dict, cpu_attack: str) -> dict:
-    clash_result = {}
-    for key in player_attacks:
-        player_result, cpu_result = determine_winner(player_attacks[key], cpu_attack)
-        clash_result[f"{key}"] = player_result
-    clash_result["CPU"] = cpu_result
-    return clash_result
+# def determine_winner(player_attack: str, cpu_attack:str) -> int:
+#     if BEATS[player_attack] == cpu_attack:
+#         player_result = 1
+#         cpu_result = 0
+#         return player_result, cpu_result
+#     elif player_attack == cpu_attack:
+#         player_result = 0
+#         cpu_result = 0
+#         return player_result, cpu_result
+#     else:
+#         player_result = 0
+#         cpu_result = 1
+#         return player_result, cpu_result
 
 
-def get_player_attacks(players: int) -> dict:
-    player_attacks = {}
-    for p in range(1, players + 1):
-        player_attacks[f"Player_{p}"] = get_valid_response(WEAPON, f"Player_{p}\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
-    return player_attacks
+# def get_clash_result(player_attacks: dict, cpu_attack: str) -> dict:
+#     clash_result = {}
+#     for key in player_attacks:
+#         player_result, cpu_result = determine_winner(player_attacks[key], cpu_attack)
+#         clash_result[f"{key}"] = player_result
+#     clash_result["CPU"] = cpu_result
+#     return clash_result
+
+
+# def get_player_attacks(players: int) -> dict:
+#     player_attacks = {}
+#     for p in range(1, players + 1):
+#         player_attacks[f"Player_{p}"] = get_valid_response(WEAPON, f"Player_{p}\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
+#     return player_attacks
 
 
 # ================================
@@ -120,19 +120,19 @@ def get_player_attacks(players: int) -> dict:
 # ================================
 
 
-def adjust_score_sheet(score_sheet: dict, clash_result: dict) -> dict:
-    for key in clash_result:
-        score_sheet[key] += clash_result[key]
-    return score_sheet
+# def adjust_score_sheet(score_sheet: dict, clash_result: dict) -> dict:
+#     for key in clash_result:
+#         score_sheet[key] += clash_result[key]
+#     return score_sheet
 
 
-def set_up_score_sheet(players: int) -> dict:
-    score_sheet = {}
-    for p in range(1, players + 1):
-        score_sheet[f"Player_{p}"] = 0
-        for p in range(1, players + 1)
-    score_sheet["CPU"] = 0
-    return score_sheet
+# def set_up_score_sheet(players: int) -> dict:
+#     score_sheet = {}
+#     for p in range(1, players + 1):
+#         score_sheet[f"Player_{p}"] = 0
+#         for p in range(1, players + 1)
+#     score_sheet["CPU"] = 0
+#     return score_sheet
 
 
 # ================================
@@ -184,7 +184,7 @@ def get_game_settings():
         wins_reqd = get_game_size()
         return players, game_type, wins_reqd
     else:
-        return
+        return None
 
 
 # ================================
@@ -193,14 +193,14 @@ def get_game_settings():
 
 
 def main():
-    while play_new_game_choice():
-        players = get_players()
-        game_type = get_game_type()
-        size = get_game_size()
-        score_sheet = set_up_score_sheet(players)
-        score_sheet = play_game_loop(size, players, score_sheet)
-        print(score_sheet)
+    while get_game_settings() != None:
+        # players = get_players()
+        # game_type = get_game_type()
+        # size = get_game_size()
+        # score_sheet = set_up_score_sheet(players)
+        # score_sheet = play_game_loop(size, players, score_sheet)
+        # print(score_sheet)
         # display_per_game_results(record, size)
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
