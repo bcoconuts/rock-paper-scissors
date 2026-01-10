@@ -8,13 +8,18 @@ import random
 # CONFIGURATION
 # ================================
 
+SINGLE_PLAYER = 1
 MAX_PLAYERS = 3
+DEFAULT_CHOICES = {
+    "game_type": "f", # free for all set as default game type value
+    "new_game_choice": "y" # yes set as default new_game_choice value
+}
 NEW_GAME_CHOICES = {
-    "y": {"name": "Yes"}, #yes must appear in first slot
+    "y": {"name": "Yes"},
     "n": {"name": "No"}
 }
 GAME_TYPE = {
-    "f": {"name": "Free For All"}, #default game type must appear in first slot
+    "f": {"name": "Free For All"},
     "a": {"name": "All vs CPU"}
 }
 DIFFICULTIES = {
@@ -44,13 +49,22 @@ def get_valid_response(valid_choices: set, prompt: str, error_msg: list = ["Inva
             return response
 
 
+def get_unique_response(existing_response: str, existing_set: set[str]) -> str:
+    while True:
+        if f"{existing_response}" in existing_set:
+            existing_response = input("\nName taken. Try Again: ")
+        else:
+            new_response = existing_response
+            return new_response
+
+
 def construct_prompt_ending(keys: list[str]) -> str:
     keys_with_brackets = [f"[{i[0].upper()}]{i[1:]}" if len(i) > 1 else f"[{i.upper()}]" for i in keys]
     main_text = ", ".join(keys_with_brackets[:-1])
     if len(keys_with_brackets) == 2:
-        main_text = main_text.__add__(" or")
+        main_text = main_text + " or"
     elif len(keys_with_brackets) > 2:
-        main_text = main_text.__add__(", or")
+        main_text = main_text + ", or"
     prompt_end = f"{main_text} {keys_with_brackets[-1]}?: "
     return prompt_end
 
@@ -73,6 +87,11 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
 # ================================
 # CORE GAME & LOGIC
 # ================================
+
+
+# def get_free_for_all_results():
+#     pass
+
 
 # def play_game_loop(size: int, players: int, score_sheet: dict) -> dict:
 #     while max(score_sheet.values()) < size:
@@ -116,22 +135,46 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
 
 
 # ================================
-# SCOREKEEPING
+# GAME SETUP
 # ================================
+
+def get_new_player_name():
+    prompt = "\nWould you be so kind as to tell me your name?: "
+
+    player_name = input(prompt)
+    return player_name
+
+
+def play_new_game_choice() -> str:
+    prompt_start = "\nNew game?"
+    prompt_end, valid_keys = construct_prompt_and_keys(NEW_GAME_CHOICES)
+
+    response = get_valid_response(valid_keys, f"{prompt_start} {prompt_end}")
+    return response
+
+
+def set_up_score_sheet(players: int) -> dict:
+    score_sheet = {}
+    for p in range(1, players + 1):
+        name = get_new_player_name()
+        name = get_unique_response(name, set(score_sheet.keys()))
+        score_sheet[f"{name}"] = {}
+        score_sheet[f"{name}"]["Wins V CPU"] = 0
+    
+    player_list = list(score_sheet.keys())
+
+    for p in player_list:
+        iter_player_list = player_list.copy()
+        iter_player_list.remove(p)
+        while len(iter_player_list) != 0:
+            score_sheet[f"{p}"][f"Wins V {iter_player_list.pop(0)}"] = 0   
+
+    return score_sheet
 
 
 # def adjust_score_sheet(score_sheet: dict, clash_result: dict) -> dict:
 #     for key in clash_result:
 #         score_sheet[key] += clash_result[key]
-#     return score_sheet
-
-
-# def set_up_score_sheet(players: int) -> dict:
-#     score_sheet = {}
-#     for p in range(1, players + 1):
-#         score_sheet[f"Player_{p}"] = 0
-#         for p in range(1, players + 1)
-#     score_sheet["CPU"] = 0
 #     return score_sheet
 
 
@@ -149,9 +192,8 @@ def get_players() -> int:
 
 
 def get_game_type(players) -> str:  
-    if players == 1:
-        game_types = [f"{k}" for k in GAME_TYPE]
-        return game_types[0]
+    if players == SINGLE_PLAYER:
+        return DEFAULT_CHOICES["game_type"]
     else:
         prompt_start = "\nWhat kind of game would you like to play?"
         prompt_end, valid_keys = construct_prompt_and_keys(GAME_TYPE)
@@ -168,23 +210,11 @@ def get_game_size() -> int:
     return DIFFICULTIES[response]["wins"]
 
 
-def play_new_game_choice() -> str:
-    prompt_start = "\nNew game?"
-    prompt_end, valid_keys = construct_prompt_and_keys(NEW_GAME_CHOICES)
-
-    response = get_valid_response(valid_keys, f"{prompt_start} {prompt_end}")
-    return response
-
 def get_game_settings():
-    new_game_choice_list = [f"{k}" for k in NEW_GAME_CHOICES]
-    new_game = play_new_game_choice()
-    if new_game == new_game_choice_list[0]:
-        players = get_players()
-        game_type = get_game_type(players)
-        wins_reqd = get_game_size()
-        return players, game_type, wins_reqd
-    else:
-        return None
+    players = get_players()
+    game_type = get_game_type(players)
+    wins_reqd = get_game_size()
+    return players, game_type, wins_reqd
 
 
 # ================================
@@ -193,7 +223,9 @@ def get_game_settings():
 
 
 def main():
-    while get_game_settings() != None:
+    while new_game == DEFAULT_CHOICES["new_game_choice"]:
+        players, game_type, wins_reqd = get_game_settings()
+
         # players = get_players()
         # game_type = get_game_type()
         # size = get_game_size()
@@ -201,6 +233,7 @@ def main():
         # score_sheet = play_game_loop(size, players, score_sheet)
         # print(score_sheet)
         # display_per_game_results(record, size)
+        new_game = play_new_game_choice()
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
