@@ -1,6 +1,7 @@
 ''' rock, paper, scissors game '''
 
 
+import itertools
 import random
 
 
@@ -8,6 +9,7 @@ import random
 # CONFIGURATION
 # ================================
 
+CPU = "CPU"
 SINGLE_PLAYER = 1
 MAX_PLAYERS = 3
 DEFAULT_CHOICES = {
@@ -32,6 +34,11 @@ WEAPONS = {
     "r": {"name": "Rock", "beats": "s"},
     "p": {"name": "Paper", "beats": "r"},
     "s": {"name": "Scissors", "beats": "p"},
+}
+OUTCOMES = {
+    "win": 1,
+    "draw": 0,
+    "loss": -1
 }
 
 
@@ -103,19 +110,21 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
 #     return score_sheet
 
 
-# def determine_winner(player_attack: str, cpu_attack:str) -> int:
-#     if BEATS[player_attack] == cpu_attack:
-#         player_result = 1
-#         cpu_result = 0
-#         return player_result, cpu_result
-#     elif player_attack == cpu_attack:
-#         player_result = 0
-#         cpu_result = 0
-#         return player_result, cpu_result
-#     else:
-#         player_result = 0
-#         cpu_result = 1
-#         return player_result, cpu_result
+def determine_outcomes_ffa(attack_dict: dict) -> dict:
+    win_loss_dict = attack_dict.fromkeys(attack_dict.keys(), 0)
+    
+    for p1, p2 in itertools.combinations(attack_dict.items(), 2):
+        if p1[1] == p2[1]:
+            win_loss_dict[f"{p1[0]}"] += OUTCOMES["draw"]
+            win_loss_dict[f"{p2[0]}"] += OUTCOMES["draw"]
+        elif WEAPONS[f"{p1[1]}"]["beats"] == p2[1]:
+            win_loss_dict[f"{p1[0]}"] += OUTCOMES["win"]
+            win_loss_dict[f"{p2[0]}"] += OUTCOMES["loss"]
+        elif WEAPONS[f"{p2[1]}"]["beats"] == p1[1]:
+            win_loss_dict[f"{p1[0]}"] += OUTCOMES["loss"]
+            win_loss_dict[f"{p2[0]}"] += OUTCOMES["win"]
+
+    return win_loss_dict
 
 
 # def get_clash_result(player_attacks: dict, cpu_attack: str) -> dict:
@@ -127,11 +136,20 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
 #     return clash_result
 
 
-# def get_player_attacks(players: int) -> dict:
-#     player_attacks = {}
-#     for p in range(1, players + 1):
-#         player_attacks[f"Player_{p}"] = get_valid_response(WEAPON, f"Player_{p}\nChoose your weapon. [R]ock, [P]aper, or [S]cissors?: ")
-#     return player_attacks
+def get_attacks(score_sheet: dict) -> dict:
+    
+    attack_dict = score_sheet.fromkeys(score_sheet.keys(), "")
+    attack_dict[CPU] = random.choice(list(WEAPONS.keys()))
+    print(attack_dict)
+
+    prompt_start = "\nChoose your Weapon."
+    prompt_end, valid_keys = construct_prompt_and_keys(WEAPONS)
+
+    for k in list(attack_dict.keys())[:-1]:
+        weapon_choice = get_valid_response(valid_keys, f"\n{k}! {prompt_start} {prompt_end}")
+        attack_dict[f"{k}"] = weapon_choice
+
+    return attack_dict
 
 
 # ================================
@@ -145,29 +163,33 @@ def get_new_player_name():
     return player_name
 
 
-def play_new_game_choice() -> str:
+def play_new_game_choice() -> bool:
     prompt_start = "\nNew game?"
     prompt_end, valid_keys = construct_prompt_and_keys(NEW_GAME_CHOICES)
 
     response = get_valid_response(valid_keys, f"{prompt_start} {prompt_end}")
-    return response
+
+    if response == DEFAULT_CHOICES["new_game_choice"]:
+        return True
+    else:
+        return False
 
 
-def set_up_score_sheet(players: int) -> dict:
-    score_sheet = {}
+def get_player_sheet(players: int) -> dict:
+    player_sheet = {}
     for p in range(1, players + 1):
         name = get_new_player_name()
-        name = get_unique_response(name, set(score_sheet.keys()))
-        score_sheet[f"{name}"] = {}
-        score_sheet[f"{name}"]["Wins V CPU"] = 0
-    
-    player_list = list(score_sheet.keys())
+        name = get_unique_response(name, set(player_sheet.keys()))
+        player_sheet[f"{name}"] = {}
+    player_sheet[CPU] = {}
 
-    for p in player_list:
-        iter_player_list = player_list.copy()
-        iter_player_list.remove(p)
-        while len(iter_player_list) != 0:
-            score_sheet[f"{p}"][f"Wins V {iter_player_list.pop(0)}"] = 0   
+    return player_sheet
+
+
+def set_up_score_sheet(player_sheet: dict) -> dict:
+    score_sheet = dict(player_sheet.copy())
+    for p1, p2 in itertools.combinations(score_sheet.keys(), 2):
+        score_sheet[f"{p1}"][f"Wins v {p2}"] = 0   
 
     return score_sheet
 
@@ -223,17 +245,15 @@ def get_game_settings():
 
 
 def main():
-    while new_game == DEFAULT_CHOICES["new_game_choice"]:
+    running = True
+    while running:
         players, game_type, wins_reqd = get_game_settings()
-
-        # players = get_players()
-        # game_type = get_game_type()
-        # size = get_game_size()
-        # score_sheet = set_up_score_sheet(players)
-        # score_sheet = play_game_loop(size, players, score_sheet)
-        # print(score_sheet)
+        player_sheet = get_player_sheet(players)
+        score_sheet = set_up_score_sheet(player_sheet)
+        attack_dict = get_attacks(score_sheet)
+        print(determine_outcomes_ffa(attack_dict))
         # display_per_game_results(record, size)
-        new_game = play_new_game_choice()
+        running = play_new_game_choice()
 
 if __name__ == "__main__":
     main()
