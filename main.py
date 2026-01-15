@@ -3,6 +3,7 @@
 
 import itertools
 import random
+import copy
 
 
 # ================================
@@ -10,6 +11,7 @@ import random
 # ================================
 
 CPU = "CPU"
+ATTACK = "Attack"
 SINGLE_PLAYER = 1
 MAX_PLAYERS = 3
 DEFAULT_CHOICES = {
@@ -133,22 +135,6 @@ def play_new_game_choice() -> bool:
 #     return score_sheet
 
 
-def determine_outcomes_ffa(attack_dict: dict) -> dict:
-    win_loss_dict = attack_dict.fromkeys(attack_dict.keys(), 0)
-    
-    for p1, p2 in itertools.combinations(attack_dict.items(), 2):
-        if p1[1] == p2[1]:
-            continue
-        elif WEAPONS[p1[1]]["beats"] == p2[1]:
-            win_loss_dict[p1[0]] += OUTCOMES["win"]
-            win_loss_dict[p2[0]] += OUTCOMES["loss"]
-        else:
-            win_loss_dict[p1[0]] += OUTCOMES["loss"]
-            win_loss_dict[p2[0]] += OUTCOMES["win"]
-
-    return win_loss_dict
-
-
 # def get_clash_result(player_attacks: dict, cpu_attack: str) -> dict:
 #     clash_result = {}
 #     for key in player_attacks:
@@ -159,18 +145,32 @@ def determine_outcomes_ffa(attack_dict: dict) -> dict:
 
 
 def get_attacks(score_sheet: dict) -> dict:
-    
-    attack_dict = score_sheet.fromkeys(score_sheet.keys(), "")
-    attack_dict[CPU] = random.choice(list(WEAPONS.keys()))
+    round_dict = copy.deepcopy(score_sheet)
+    round_dict[CPU][ATTACK] = random.choice(list(WEAPONS.keys()))
 
     prompt_start = "\nChoose your Weapon."
     prompt_end, valid_keys = construct_prompt_and_keys(WEAPONS)
 
-    for k in list(attack_dict.keys())[:-1]:
+    for k in list(round_dict.keys())[:-1]:
         weapon_choice = get_valid_response(valid_keys, f"\n{k}! {prompt_start} {prompt_end}")
-        attack_dict[k] = weapon_choice
+        round_dict[k][ATTACK] = weapon_choice
 
-    return attack_dict
+    return round_dict
+
+
+def determine_round_outcome(round_dict: dict) -> dict:
+    attacks = {k: v[ATTACK] for k, v in round_dict.items()}
+    for (name_p1, attack_p1), (name_p2, attack_p2) in itertools.combinations(attacks.items(), 2):
+        if attack_p1 == attack_p2:
+            continue
+        elif WEAPONS[attack_p1]["beats"] == attack_p2:
+            round_dict[name_p1][f"Wins v {name_p2}"] += OUTCOMES["win"]
+        else:
+            round_dict[name_p1][f"Wins v {name_p2}"] += OUTCOMES["loss"]
+    return round_dict
+
+# def adjust_score_sheet():
+#     pass
 
 
 # ================================
@@ -178,7 +178,7 @@ def get_attacks(score_sheet: dict) -> dict:
 # ================================
 
 
-def collect_player_names(players: int) -> dict[str, dict[str, int]]:
+def collect_player_names(players: int) -> dict[str, dict[str, int | str]]:
     player_sheet = {}
     name_set = set()
     for p in range(1, players + 1):
@@ -190,12 +190,15 @@ def collect_player_names(players: int) -> dict[str, dict[str, int]]:
     return player_sheet
 
 
-def setup_score_tracking(player_sheet: dict[str, dict[str, int]]) -> None:
+def setup_score_tracking(player_sheet: dict[str, dict[str, int | str]]) -> None:
     for p1, p2 in itertools.combinations(player_sheet.keys(), 2):
         player_sheet[p1][f"Wins v {p2}"] = 0
 
+def setup_attack_tracking(player_sheet: dict[str, dict[str, int | str]]) -> None:
+    for k in player_sheet:
+        player_sheet[k][ATTACK] = ""
 
-def create_score_sheet(players: int) -> dict[str, dict[str, int]]:
+def create_score_sheet(players: int) -> dict[str, dict[str, int | str]]:
     score_sheet = collect_player_names(players)
     setup_score_tracking(score_sheet)
     return score_sheet
@@ -250,7 +253,7 @@ def main():
         players, game_type, wins_reqd = get_game_settings()
         score_sheet = create_score_sheet(players)
         attack_dict = get_attacks(score_sheet)
-        print(determine_outcomes_ffa(attack_dict))
+        print(determine_round_outcome(attack_dict))
         # display_per_game_results(record, size)
         running = play_new_game_choice()
 
