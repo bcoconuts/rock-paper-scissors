@@ -46,23 +46,34 @@ OUTCOMES = {
 # UTILITY
 # ================================
 
-
-def get_valid_response(valid_choices: set, prompt: str, error_msg: list = ["Invalid Input"]) -> str:
+def get_valid_response(valid_choices: set, prompt: str, case=str.lower) -> str:
+    error_msg = [
+        "Invalid Input.",
+        "Try Again.",
+        "Alright, No More Monkey Business!"
+    ]
     while True:
-        response = input(prompt).strip().lower()
+        response = case(input(prompt).strip())
         if response not in valid_choices:
             print(random.choice(error_msg))
         else:
             return response
 
 
-def get_unique_response(existing_response: str, existing_set: set[str]) -> str:
+def get_unique_alpha_response(invalid_choices: set, prompt: str, case=str.lower) -> str:
+    unique_error_msg = [
+        "Already Taken!",
+        "That cant be right. I already have that one!"
+    ]
+    alpha_error_msg = "Must be alphabetical only. No numbers or special chars."
     while True:
-        if f"{existing_response}" in existing_set:
-            existing_response = input("\nName taken. Try Again: ")
+        response = case(input(prompt).strip())
+        if response in invalid_choices and response.isalpha():
+            print(random.choice(unique_error_msg))
+        elif not response.isalpha():
+            print(alpha_error_msg)
         else:
-            new_response = existing_response
-            return new_response
+            return response
 
 
 def construct_prompt_ending(keys: list[str]) -> str:
@@ -85,10 +96,22 @@ def construct_prompt_and_keys(selection: int | dict) -> tuple[str, set[str]]:
         valid_keys = set(valid_input_list)
         return prompt_end, valid_keys
     else:
-        valid_input_list = [f"{selection[k]['name']}" for k in selection] # pyright: ignore[reportIndexIssue, reportGeneralTypeIssues]
+        valid_input_list = [selection[k]['name'] for k in selection] # pyright: ignore[reportIndexIssue, reportGeneralTypeIssues]
         prompt_end = construct_prompt_ending(valid_input_list)
         valid_keys = set(i[0].lower() for i in valid_input_list)
         return prompt_end, valid_keys
+
+
+def play_new_game_choice() -> bool:
+    prompt_start = "\nNew game?"
+    prompt_end, valid_keys = construct_prompt_and_keys(NEW_GAME_CHOICES)
+
+    response = get_valid_response(valid_keys, f"{prompt_start} {prompt_end}")
+
+    if response == DEFAULT_CHOICES["new_game_choice"]:
+        return True
+    else:
+        return False
 
 
 # ================================
@@ -115,14 +138,13 @@ def determine_outcomes_ffa(attack_dict: dict) -> dict:
     
     for p1, p2 in itertools.combinations(attack_dict.items(), 2):
         if p1[1] == p2[1]:
-            win_loss_dict[f"{p1[0]}"] += OUTCOMES["draw"]
-            win_loss_dict[f"{p2[0]}"] += OUTCOMES["draw"]
-        elif WEAPONS[f"{p1[1]}"]["beats"] == p2[1]:
-            win_loss_dict[f"{p1[0]}"] += OUTCOMES["win"]
-            win_loss_dict[f"{p2[0]}"] += OUTCOMES["loss"]
-        elif WEAPONS[f"{p2[1]}"]["beats"] == p1[1]:
-            win_loss_dict[f"{p1[0]}"] += OUTCOMES["loss"]
-            win_loss_dict[f"{p2[0]}"] += OUTCOMES["win"]
+            continue
+        elif WEAPONS[p1[1]]["beats"] == p2[1]:
+            win_loss_dict[p1[0]] += OUTCOMES["win"]
+            win_loss_dict[p2[0]] += OUTCOMES["loss"]
+        else:
+            win_loss_dict[p1[0]] += OUTCOMES["loss"]
+            win_loss_dict[p2[0]] += OUTCOMES["win"]
 
     return win_loss_dict
 
@@ -140,14 +162,13 @@ def get_attacks(score_sheet: dict) -> dict:
     
     attack_dict = score_sheet.fromkeys(score_sheet.keys(), "")
     attack_dict[CPU] = random.choice(list(WEAPONS.keys()))
-    print(attack_dict)
 
     prompt_start = "\nChoose your Weapon."
     prompt_end, valid_keys = construct_prompt_and_keys(WEAPONS)
 
     for k in list(attack_dict.keys())[:-1]:
         weapon_choice = get_valid_response(valid_keys, f"\n{k}! {prompt_start} {prompt_end}")
-        attack_dict[f"{k}"] = weapon_choice
+        attack_dict[k] = weapon_choice
 
     return attack_dict
 
@@ -156,49 +177,28 @@ def get_attacks(score_sheet: dict) -> dict:
 # GAME SETUP
 # ================================
 
-def get_new_player_name():
-    prompt = "\nWould you be so kind as to tell me your name?: "
 
-    player_name = input(prompt)
-    return player_name
-
-
-def play_new_game_choice() -> bool:
-    prompt_start = "\nNew game?"
-    prompt_end, valid_keys = construct_prompt_and_keys(NEW_GAME_CHOICES)
-
-    response = get_valid_response(valid_keys, f"{prompt_start} {prompt_end}")
-
-    if response == DEFAULT_CHOICES["new_game_choice"]:
-        return True
-    else:
-        return False
-
-
-def get_player_sheet(players: int) -> dict:
+def collect_player_names(players: int) -> dict[str, dict[str, int]]:
     player_sheet = {}
+    name_set = set()
     for p in range(1, players + 1):
-        name = get_new_player_name()
-        name = get_unique_response(name, set(player_sheet.keys()))
-        player_sheet[f"{name}"] = {}
+        name = get_unique_alpha_response(name_set, f"\nWhat is Player {p}'s name?: ", str.title)
+        player_sheet[name] = {}
+        name_set.add(name)
     player_sheet[CPU] = {}
 
     return player_sheet
 
 
-def set_up_score_sheet(player_sheet: dict) -> dict:
-    score_sheet = dict(player_sheet.copy())
-    for p1, p2 in itertools.combinations(score_sheet.keys(), 2):
-        score_sheet[f"{p1}"][f"Wins v {p2}"] = 0   
+def setup_score_tracking(player_sheet: dict[str, dict[str, int]]) -> None:
+    for p1, p2 in itertools.combinations(player_sheet.keys(), 2):
+        player_sheet[p1][f"Wins v {p2}"] = 0
 
+
+def create_score_sheet(players: int) -> dict[str, dict[str, int]]:
+    score_sheet = collect_player_names(players)
+    setup_score_tracking(score_sheet)
     return score_sheet
-
-
-# def adjust_score_sheet(score_sheet: dict, clash_result: dict) -> dict:
-#     for key in clash_result:
-#         score_sheet[key] += clash_result[key]
-#     return score_sheet
-
 
 # ================================
 # GAME SETTINGS
@@ -213,7 +213,7 @@ def get_players() -> int:
     return response
 
 
-def get_game_type(players) -> str:  
+def get_game_type(players: int) -> str:  
     if players == SINGLE_PLAYER:
         return DEFAULT_CHOICES["game_type"]
     else:
@@ -248,8 +248,7 @@ def main():
     running = True
     while running:
         players, game_type, wins_reqd = get_game_settings()
-        player_sheet = get_player_sheet(players)
-        score_sheet = set_up_score_sheet(player_sheet)
+        score_sheet = create_score_sheet(players)
         attack_dict = get_attacks(score_sheet)
         print(determine_outcomes_ffa(attack_dict))
         # display_per_game_results(record, size)
