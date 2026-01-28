@@ -120,8 +120,8 @@ def play_new_game_choice() -> bool:
 # ================================
 
 
-def get_attacks(full_game_sheet: dict) -> dict:
-    round_dict = copy.deepcopy(full_game_sheet)
+def get_attacks(player_sheet: dict) -> dict:
+    round_dict = copy.deepcopy(player_sheet)
     round_dict[CPU][ATTACK] = random.choice(list(WEAPONS.keys()))
 
     prompt_start = "\nChoose your Weapon."
@@ -136,7 +136,7 @@ def get_attacks(full_game_sheet: dict) -> dict:
 
 def determine_round_outcome(round_dict: dict) -> None:
     attacks = {k: v[ATTACK] for k, v in round_dict.items()}
-    for (name_p1, attack_p1), (name_p2, attack_p2) in itertools.combinations(attacks.items(), 2):
+    for (name_p1, attack_p1), (name_p2, attack_p2) in itertools.permutations(attacks.items(), 2):
         if attack_p1 == attack_p2:
             continue
         elif WEAPONS[attack_p1]["beats"] == attack_p2:
@@ -156,14 +156,31 @@ def adjust_full_game_sheet(full_game_sheet: dict, round_dict: dict) -> None:
                 print("whoops... game broken lol")
 
 
-def check_score_totals(wins_reqd: int, full_game_sheet: dict[str, dict]) -> bool:
+def check_game_over_status(game_type: str, wins_reqd: int, full_game_sheet: dict[str, dict]) -> bool:
+    if GAME_TYPE[game_type]["name"] == "Free For All":
+        return check_game_over_ffa(wins_reqd, full_game_sheet)
+    elif GAME_TYPE[game_type]["name"] == "All vs CPU":
+        return check_game_over_allvcpu(wins_reqd, full_game_sheet)
+    else:
+        return True
+
+
+def check_game_over_ffa(wins_reqd: int, full_game_sheet: dict) -> bool:
     for stats in full_game_sheet.values():
-        if wins_reqd in stats.values():
+        win_sum = sum([wins for k, wins in stats.items() if k.startswith("Win")])
+        if win_sum >= wins_reqd:
             return False
     return True
 
 
-def play_game_loop(wins_reqd: int, player_sheet: dict) -> dict:
+def check_game_over_allvcpu(wins_reqd: int, full_game_sheet: dict) -> bool:
+    if any(v >= wins_reqd for v in full_game_sheet[CPU].values()):
+        return False
+    else:
+        return True
+
+
+def play_game_loop(game_type: str, wins_reqd: int, player_sheet: dict) -> dict:
     full_game_sheet = copy.deepcopy(player_sheet)
     running = True
     while running:
@@ -171,7 +188,7 @@ def play_game_loop(wins_reqd: int, player_sheet: dict) -> dict:
         determine_round_outcome(round_dict)
         print(round_dict)
         adjust_full_game_sheet(full_game_sheet, round_dict)
-        running = check_score_totals(wins_reqd, full_game_sheet)
+        running = check_game_over_status(game_type, wins_reqd, full_game_sheet)
     return full_game_sheet
 
 
@@ -194,18 +211,14 @@ def collect_player_names(players: int) -> dict[str, dict[str, int | str]]:
 
 
 def setup_score_tracking(player_sheet: dict[str, dict[str, int | str]]) -> None:
-    for p1, p2 in itertools.combinations(player_sheet.keys(), 2):
+    for p1, p2 in itertools.permutations(player_sheet.keys(), 2):
         player_sheet[p1][f"Wins v {p2}"] = 0
         player_sheet[p1][f"Losses v {p2}"] = 0
 
-def setup_attack_tracking(player_sheet: dict[str, dict[str, int | str]]) -> None:
-    for k in player_sheet:
-        player_sheet[k][ATTACK] = ""
 
 def create_player_sheet(players: int) -> dict[str, dict[str, int | str]]:
     player_sheet = collect_player_names(players)
     setup_score_tracking(player_sheet)
-    setup_attack_tracking(player_sheet)
     return player_sheet
 
 # ================================
@@ -257,7 +270,7 @@ def main():
     while running:
         players, game_type, wins_reqd = get_game_settings()
         player_sheet = create_player_sheet(players)
-        full_game_sheet = play_game_loop(wins_reqd, player_sheet)
+        full_game_sheet = play_game_loop(game_type, wins_reqd, player_sheet)
         print(full_game_sheet)
         # display_per_game_results(record, size)
         running = play_new_game_choice()
