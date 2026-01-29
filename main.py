@@ -12,6 +12,8 @@ import copy
 
 CPU = "CPU"
 ATTACK = "Attack"
+WINS_VS_X = "Wins v "
+LOSSES_VS_X = "Losses v "
 SINGLE_PLAYER = 1
 MAX_PLAYERS = 3
 DEFAULT_CHOICES = {
@@ -173,8 +175,8 @@ def collect_player_names(players: int) -> dict[str, dict[str, int | str]]:
 
 def setup_score_tracking(player_sheet: dict[str, dict[str, int | str]]) -> None:
     for p1, p2 in itertools.permutations(player_sheet.keys(), 2):
-        player_sheet[p1][f"Wins v {p2}"] = 0
-        player_sheet[p1][f"Losses v {p2}"] = 0
+        player_sheet[p1][WINS_VS_X + p2] = 0
+        player_sheet[p1][LOSSES_VS_X + p2] = 0
 
 
 def create_player_sheet(players: int) -> dict[str, dict[str, int | str]]:
@@ -205,9 +207,9 @@ def determine_round_outcome(round_dict: dict):
         if attack_p1 == attack_p2:
             continue
         elif WEAPONS[attack_p1]["beats"] == attack_p2:
-            round_dict[name_p1][f"Wins v {name_p2}"] += WIN_WEIGHT["standard"]
+            round_dict[name_p1][WINS_VS_X + name_p2] += WIN_WEIGHT["standard"]
         else:
-            round_dict[name_p1][f"Losses v {name_p2}"] += WIN_WEIGHT["standard"]
+            round_dict[name_p1][LOSSES_VS_X + name_p2] += WIN_WEIGHT["standard"]
 
 
 def adjust_full_game_sheet(full_game_sheet: dict, round_dict: dict):
@@ -221,7 +223,7 @@ def adjust_full_game_sheet(full_game_sheet: dict, round_dict: dict):
 
 def check_game_over_ffa(wins_reqd: int, full_game_sheet: dict) -> bool:
     for stats in full_game_sheet.values():
-        win_sum = sum([wins for k, wins in stats.items() if k.startswith("Win")])
+        win_sum = sum([wins for k, wins in stats.items() if k.startswith(WINS_VS_X)])
         if win_sum >= wins_reqd:
             return False
     return True
@@ -264,6 +266,30 @@ def play_game_loop(game_type: str, game_size: str, player_sheet: dict) -> tuple[
 # ================================
 
 
+def display_round_results_ffa(round_number: int, round_dict: dict[str, dict[str, int | str]]):
+    print(f"\nRound {round_number} Results!:")
+
+    for player, result in round_dict.items():
+        player_weapon = WEAPONS[result[ATTACK]]['name'] #type: ignore
+        score = WIN_WEIGHT["standard"]
+        wins_set = {challenger.removeprefix(WINS_VS_X) for challenger, win_check in result.items() if win_check == score and challenger.startswith(WINS_VS_X)}
+        loss_set = {challenger.removeprefix(LOSSES_VS_X) for challenger, win_check in result.items() if win_check == score and challenger.startswith(LOSSES_VS_X)}
+        draw_set = {player_name for player_name in round_dict if player_name != player}.difference(wins_set).difference(loss_set)
+        player_weapons = {k: WEAPONS[v[ATTACK]]['name'] for k, v in round_dict.items()} #type: ignore
+        print(f"\n{player}'s Results:")
+        for challenger in draw_set:
+            print(f"{player}'s {player_weapon} ties with {challenger}'s {player_weapons[challenger]}")
+        for challenger in loss_set:
+            result_start = f"{random.choice(WEAPONS[result[ATTACK]]['loss_action'])}" #type: ignore
+            print(f"{player}'s {player_weapon} {result_start} {challenger}'s {player_weapons[challenger]}")
+        for challenger in wins_set:
+            result_start = f"{random.choice(WEAPONS[result[ATTACK]]['win_action'])}" #type: ignore
+            print(f"{player}'s {player_weapon} {result_start} {challenger}'s {player_weapons[challenger]}")
+        print(f"{len(draw_set)} Stalemate(s)!")
+        print(f"{len(loss_set)} Defeat(s)!")
+        print(f"{len(wins_set)} Triumph(s)!")
+
+
 def display_round_results_allvcpu(round_number: int, round_dict: dict):
     result_end = f"{CPU}'s {WEAPONS[round_dict[CPU][ATTACK]]['name']}"
     print(f"\nRound {round_number} Results!:")
@@ -275,9 +301,8 @@ def display_round_results_allvcpu(round_number: int, round_dict: dict):
         player_weapon = f"{WEAPONS[result[ATTACK]]['name']}"
         score = WIN_WEIGHT["standard"]
         no_score = WIN_WEIGHT["none"]
-        wins = result[f"Wins v {CPU}"]
-        losses = result[f"Losses v {CPU}"]
-
+        wins = result[WINS_VS_X + CPU]
+        losses = result[LOSSES_VS_X + CPU]
         if wins == losses == no_score:
             print(f"{player}'s {player_weapon} ties with {result_end}")
             print("Stalemate!\n")
@@ -292,18 +317,53 @@ def display_round_results_allvcpu(round_number: int, round_dict: dict):
 
 
 def display_round_results(game_type: str, round_number: int, round_dict: dict):
-    # if GAME_TYPE[game_type]["name"] == "Free For All":
-    #     return display_round_results_ffa(round_dict)
+    if GAME_TYPE[game_type]["name"] == "Free For All":
+        return display_round_results_ffa(round_number, round_dict)
     if GAME_TYPE[game_type]["name"] == "All vs CPU":
         return display_round_results_allvcpu(round_number, round_dict)
+
+
+def display_game_results_ffa(wins_reqd: int, rounds_played: int, game_number: int, full_game_sheet: dict[str, dict[str, int]]):
+    if wins_reqd == DIFFICULTIES["q"]["wins"]:
+        return None
+    
+    wins_dict = {k: sum(count for matchup, count in v.items() if matchup.startswith(WINS_VS_X)) for k, v in full_game_sheet.items()}
+    losses_dict = {k: sum(count for matchup, count in v.items() if matchup.startswith(LOSSES_VS_X)) for k, v in full_game_sheet.items()}
+    winners = {player for player, wins in wins_dict.items() if wins >= wins_reqd}
+    losers = set(wins_dict).difference(winners)
+    max_wins = max(wins_dict.values())
+
+    if max_wins > wins_reqd:
+        final_greeting = (
+        f"A Legendary Battle was fought here!! Only {wins_reqd} victorious skirmishes were required to determine a winner,"
+        f"\nbut our winner(s) defeated their enemies {max_wins} times!!!"
+    )
+    elif max_wins == wins_reqd:
+        final_greeting = f"One of the more precise battles I've seen. Exactly {wins_reqd} victories were needed to win this battle, and the winner has delivered just that!"
+
+    print(
+        f"\nGame {game_number} Results!:\n"
+        f"\nIn this {GAME_TYPE['f']['name']} battle, {rounds_played} rounds were played here today."
+        f"\n{final_greeting}\n"
+    )
+    for player in winners:
+        if player == CPU:
+            print(f"You Fools! You've let the {CPU} win today.... With a staggering {wins_dict[player]} wins!")
+        else:
+            print(f"{player}!\nYou have bested your enemies! You defeated your foes an incredible {wins_dict[player]} times in this battle! Well done. You will be remembered a winner!")
+    for player in losers:
+        if player == CPU:
+            print(f"The {CPU} has suffered an embarrassing defeat, with only {wins_dict[player]} win(s), and a disgraceful {losses_dict[player]} loss(es)!!!")
+        else:
+            print(f"{player}... \nYou have let your brethren down! With only {wins_dict[player]} win(s), and a shameful {losses_dict[player]} loss(es). You must do better.")
 
 
 def display_game_results_allvcpu(wins_reqd: int, best_of: int, rounds_played: int, game_number: int, full_game_sheet: dict[str, dict[str, int]]):
     if wins_reqd == DIFFICULTIES["q"]["wins"]:
         return None
     
-    player_wins_list = [(k.removeprefix("Losses v ")) for k, v in full_game_sheet[CPU].items() if v >= wins_reqd and k.startswith("Losses v ")]
-    cpu_wins_list = [(k.removeprefix("Wins v ")) for k, v in full_game_sheet[CPU].items() if v >= wins_reqd and k.startswith("Wins v ")]
+    player_wins_set = {k.removeprefix(LOSSES_VS_X) for k, v in full_game_sheet[CPU].items() if v >= wins_reqd and k.startswith(LOSSES_VS_X)}
+    cpu_wins_set = {k.removeprefix(WINS_VS_X) for k, v in full_game_sheet[CPU].items() if v >= wins_reqd and k.startswith(WINS_VS_X)}
 
     if best_of == rounds_played:
         final_greeting = f"A costly battle indeed. Only {wins_reqd} victorious skirmishes were required to determine a winner."
@@ -316,17 +376,17 @@ def display_game_results_allvcpu(wins_reqd: int, best_of: int, rounds_played: in
         \n{final_greeting}
     """
     )
-    for player in player_wins_list:
+    for player in player_wins_set:
         print(f"\n{player}!\nYou have bested your enemy! The {CPU} could not withstand your advances!")
-    for player in cpu_wins_list:
+    for player in cpu_wins_set:
         print(f"\n{player}... \nThe {CPU} has defeated you. Lick your wounds and return to camp.")
 
 
 def display_game_results(game_size: str, game_type: str, rounds_played: int, game_number: int, full_game_sheet: dict):
     wins_reqd = DIFFICULTIES[game_size]["wins"]
     best_of = DIFFICULTIES[game_size]["best_of"]
-    # if GAME_TYPE[game_type]["name"] == "Free For All":
-    #     return display_round_results_ffa(round_dict)
+    if GAME_TYPE[game_type]["name"] == "Free For All":
+        return display_game_results_ffa(wins_reqd, rounds_played, game_number, full_game_sheet)
     if GAME_TYPE[game_type]["name"] == "All vs CPU":
         return display_game_results_allvcpu(wins_reqd, best_of, rounds_played, game_number, full_game_sheet)
 
@@ -354,4 +414,3 @@ if __name__ == "__main__":
 # ================================
 # DEBUG
 # ================================
-
